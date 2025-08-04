@@ -63,7 +63,8 @@ class Glue:
         self.mms = mms
         # TODO -- this is unused! Forgotten or to be used in the future?
         self.ignore_list = load_json(ignore_bone_list)
-        self.src_blendfile = src_blendfile
+        # Convert the path to be relative to the current working directory
+        self.src_blendfile = str(Path(src_blendfile).resolve())
 
         self.initialize_scene()
         self.initialize_mesh()

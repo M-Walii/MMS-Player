@@ -1,0 +1,311 @@
+"""
+Generate MMS Prime from MMS data with inflections.
+
+This script takes an MMS (Motion Measurement System) file and generates an MMS Prime file
+by computing inflection angles (ALPHA and BETA) for hand rotations based on target points
+specified in a pointing dictionary.
+
+Example:
+    python generate_mms_prime.py --input-mms "path/to/mms.csv" --corpus-dir "path/to/corpus" 
+                                --output-dir "path/to/output" --pointing-dict "path/to/dict.json"
+"""
+
+import json
+import os
+import sys
+from typing import Dict, List, Tuple, Any
+
+import numpy as np
+import pandas as pd
+from scipy.spatial.transform import Rotation as R
+
+
+def parse_arguments() -> Any:
+    """
+    Parse command line arguments.
+    
+    Returns:
+        argparse.Namespace: Parsed arguments containing:
+            - input_mms: Source MMS CSV file path
+            - corpus_dir: Source corpus directory path
+            - pointing_dict: Source pointing dictionary path
+            - output_dir: Target output directory path
+    
+    Raises:
+        SystemExit: If required arguments are missing or invalid
+    """
+    import argparse
+    parser = argparse.ArgumentParser(description='Generate MMS Prime from MMS data with inflections')
+    parser.add_argument('--input-mms', required=True, 
+                       help='Input MMS CSV filename (e.g., HandReloc-INDEX-X9.mms.csv)')
+    parser.add_argument('--corpus-dir', required=True,
+                       help='Directory containing corpus data')
+    parser.add_argument('--pointing-dict', required=True,
+                       help='Path to JSON file containing pointing dictionary')
+    parser.add_argument('--output-dir', required=True,
+                       help='Output directory for MMS Prime files')
+   
+    
+    return parser.parse_args()
+
+
+def validate_paths(args: Any) -> None:
+    """
+    Validate that all required paths exist and are accessible.
+    
+    Args:
+        args: Source command line arguments containing all paths
+    
+    Raises:
+        FileNotFoundError: If any required path does not exist
+        PermissionError: If any path is not accessible
+    """
+    # Check if input MMS file exists
+    if not os.path.isfile(args.input_mms):
+        raise FileNotFoundError(f"Input MMS file not found: {args.input_mms}")
+    
+    # Check if corpus directory exists
+    if not os.path.isdir(args.corpus_dir):
+        raise FileNotFoundError(f"Corpus directory not found: {args.corpus_dir}")
+    
+    # Check if pointing dictionary exists
+    if not os.path.isfile(args.pointing_dict):
+        raise FileNotFoundError(f"Pointing dictionary not found: {args.pointing_dict}")
+    
+    # Create output directory if it doesn't exist
+    try:
+        os.makedirs(args.output_dir, exist_ok=True)
+    except PermissionError:
+        raise PermissionError(f"Cannot create output directory: {args.output_dir}")
+
+
+def load_pointing_dictionary(pointing_dict_path: str) -> Dict[int, List[float]]:
+    """
+    Load and validate the pointing dictionary from JSON file.
+    
+    Args:
+        pointing_dict_path: Source pointing dictionary JSON file path
+    
+    Returns:
+        Dict[int, List[float]]: Dictionary mapping line numbers to target coordinates
+    
+    Raises:
+        ValueError: If dictionary format is invalid
+        json.JSONDecodeError: If JSON file is malformed
+    """
+    try:
+        with open(pointing_dict_path) as f:
+            raw_dict = json.load(f)
+            print(f"\nLoaded pointing dictionary: {raw_dict}")  # Debug print
+            
+        # Convert string keys to integers and validate values
+        pointing_dict = {}
+        for k, v in raw_dict.items():
+            try:
+                key = int(k)
+                if key < 0:
+                    raise ValueError(f"Line number {k} cannot be negative")
+                    
+                if not isinstance(v, list) or len(v) != 3:
+                    raise ValueError(
+                        f"Invalid coordinates for line {k}: {v}\n"
+                        f"Expected format: [x, y, z] (3 numbers)"
+                    )
+                    
+                try:
+                    # Validate that all coordinates are numbers
+                    coords = [float(coord) for coord in v]
+                    pointing_dict[key] = coords
+                except ValueError:
+                    raise ValueError(
+                        f"Invalid coordinates for line {k}: {v}\n"
+                        f"All coordinates must be numbers"
+                    )
+                    
+            except ValueError as e:
+                raise ValueError(f"Invalid pointing dictionary format: {str(e)}")
+                
+        if not pointing_dict:
+            raise ValueError("Pointing dictionary is empty")
+            
+        print(f"Processed pointing dictionary: {pointing_dict}")  # Debug print
+        return pointing_dict
+        
+    except json.JSONDecodeError:
+        raise ValueError(
+            f"Invalid JSON format in pointing dictionary: {pointing_dict_path}\n"
+            f"Please ensure the file is a valid JSON file"
+        )
+
+def load_trajectory_data(trajectory_file_path: str) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Load trajectory data from JSON file.
+    
+    Args:
+        trajectory_file_path: Path to trajectory JSON file
+    
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: Starting point and initial direction vector
+    """
+    try:
+        with open(trajectory_file_path) as f:
+            trajectory_data = json.load(f)
+        
+        # Load full trajectory as an (N×3) array
+        traj = np.array(trajectory_data['dominant_hand']['trajectory'])
+        
+        # Starting point is the first trajectory frame
+        starting_point = traj[0]
+        
+        # Initial pointing direction: vector from frame 0 to frame 1
+        initial_vector = traj[1] - traj[0]
+        
+        return starting_point, initial_vector
+        
+    except Exception as e:
+        raise ValueError(f"Error loading trajectory data: {str(e)}")
+
+
+def compute_inflection_angles(
+    starting_point: np.ndarray,
+    initial_vector: np.ndarray,
+    target_point: np.ndarray
+) -> Tuple[float, float]:
+    """
+    Calculate ALPHA (horizontal angle in XZ plane) and BETA (vertical angle in XY plane)
+    using atan2 to rotate from initial direction to target direction.
+
+    Args:
+        starting_point (np.ndarray): Origin (avatar finger base)
+        initial_vector (np.ndarray): Current pointing direction vector (3D)
+        target_point (np.ndarray): Desired pointing location in 3D space
+
+    Returns:
+        Tuple[float, float]: (alpha, beta) angles in radians
+    """
+
+    # Step 1: Target vector = direction from start to target
+    target_vector = target_point - starting_point
+
+    # Step 2: Normalize both vectors
+    initial_unit = initial_vector / np.linalg.norm(initial_vector)
+    target_unit = target_vector / np.linalg.norm(target_vector)
+
+    # Step 3: ALPHA – Horizontal angle in XZ plane
+    initial_alpha = np.arctan2(initial_unit[0], initial_unit[2])  # X/Z
+    target_alpha = np.arctan2(target_unit[0], target_unit[2])
+    alpha = target_alpha - initial_alpha
+    alpha = (alpha + np.pi) % (2 * np.pi) - np.pi
+
+    # Step 4: BETA – Vertical angle in XY plane
+    initial_beta = np.arctan2(initial_unit[1], initial_unit[0])  # Y/X
+    target_beta = np.arctan2(target_unit[1], target_unit[0])
+    beta = target_beta - initial_beta
+    beta = (beta + np.pi) % (2 * np.pi) - np.pi
+
+    return alpha, beta
+
+def apply_inflections(
+    mms_df: pd.DataFrame,            # Source MMS data
+    pointing_dict: Dict[int, List[float]],  # Target points dictionary
+    corpus_dir: str                  # Corpus directory path
+) -> pd.DataFrame:
+    """
+    Apply inflection angles to the MMS data to generate MMS Prime.
+    Uses INDEX row's trajectory data for all cities, and pointing_dict for target points.
+    Angles are in radians and placed in the current INDEX row based on last_target logic.
+    """
+    mms_prime = mms_df.copy()
+    
+    print("\nApplying inflections to generate MMS Prime (using INDEX trajectory)...")
+    print(f"Pointing dictionary: {pointing_dict}")
+    
+    # First, get the INDEX row's trajectory data
+    index_trajectory_file = os.path.join(
+        corpus_dir, 'generated', 'signs', 'trimmed', 'INDEX.trajectoryInfo.json'
+    )
+    if not os.path.isfile(index_trajectory_file):
+        raise ValueError(f"INDEX trajectory file not found: {index_trajectory_file}")
+    
+    starting_point, initial_vector = load_trajectory_data(index_trajectory_file)
+    print(f"\nUsing INDEX trajectory data:")
+    print(f"  Starting point: {starting_point}")
+    print(f"  Initial vector: {initial_vector}")
+    
+    last_target = None
+    for line_num, row in mms_df.iterrows():
+        maingloss = row['maingloss']
+        print(f"\nProcessing row {line_num}: {maingloss}")
+
+        # Rule 1: If the current line number is in pointing dictionary, 
+        # then memorize the coordinates in variable last_target
+        if line_num in pointing_dict:
+            last_target = np.array(pointing_dict[line_num])
+            print(f"  Memorized last_target: {last_target}")
+
+        # Rule 2: If the maingloss is INDEX and last_target is different from None,
+        # then compute the inflection parameters using last_target and set last_target = None
+        if maingloss == 'INDEX' and last_target is not None:
+            try:
+                print(f"  Using last_target for inflection: {last_target}")
+                alpha, beta = compute_inflection_angles(
+                    starting_point,
+                    initial_vector,
+                    last_target
+                )
+                print(f"  Calculated angles: alpha={alpha}, beta={beta}")
+                mms_prime.at[line_num, 'domhandrotx'] = 0.0
+                mms_prime.at[line_num, 'domhandroty'] = float(alpha)
+                mms_prime.at[line_num, 'domhandrotz'] = float(beta)
+                print(f"  Updated angles in INDEX row {line_num}")
+                last_target = None
+            except Exception as e:
+                print(f"Error processing INDEX at row {line_num}: {str(e)}")
+        else:
+            if maingloss != 'INDEX':
+                print(f"  Skipping row - not INDEX")
+            elif last_target is None:
+                print(f"  Skipping INDEX row - last_target is None")
+    
+    return mms_prime
+
+
+def main() -> None:
+    """
+    Main function to generate MMS Prime data.
+    """
+    try:
+        # Parse and validate arguments
+        args = parse_arguments()
+        validate_paths(args)
+        
+        # Load pointing dictionary
+        pointing_dict = load_pointing_dictionary(args.pointing_dict)
+        print(f"Loaded pointing dictionary with {len(pointing_dict)} entries")
+        
+        # Load MMS data
+        print(f"Loading MMS data from: {args.input_mms}")
+        try:
+            mms_df = pd.read_csv(args.input_mms)
+            if mms_df.empty:
+                raise ValueError("MMS file is empty")
+        except Exception as e:
+            raise ValueError(f"Error loading MMS data: {str(e)}")
+        
+        # Generate MMS Prime
+        mms_prime = apply_inflections(mms_df, pointing_dict, args.corpus_dir)
+        
+        # Save output
+        output_file_path = os.path.join(args.output_dir, 
+                                       os.path.basename(args.input_mms).replace('.mms.csv', 
+                                                                              '.mms_prime.csv'))
+        mms_prime.to_csv(output_file_path, index=False)
+        print(f"\nSaved inflected MMS Prime to: {output_file_path}")
+        
+    except Exception as e:
+        print(f"\nError: {str(e)}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
