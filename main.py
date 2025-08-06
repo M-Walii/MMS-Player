@@ -455,7 +455,7 @@ def execute_pipeline(arguments: argparse.Namespace) -> None:
     print("Merging inflected glosses into the final timeline...")
     glue = Glue(mms=mms,
                 ignore_bone_list="./assets/ignorelist.json",
-                src_blendfile="./assets/defaults-AbsCoordTest-250804.blend",
+                src_blendfile="./assets/defaults-AbsCoordTest-250806.blend",
                 action_name="final_action")
     # Since the animation data is essentially empty after initializing a new one,
     # it is necessary to create f-curves that match the source data.

@@ -19,6 +19,36 @@ import numpy as np
 import pandas as pd
 from scipy.spatial.transform import Rotation as R
 
+# Bone_Spine2-world matrix
+BONE_WORLD = np.array([
+   [1.623146658857877e-06, -9.530092626164333e-08, 0.9999999403953552, -4.030154286738252e-06],
+   [0.9999996423721313, -0.0007954105967655778, -1.631790041756176e-06, 0.011902960017323494],
+   [0.0007954107131808996, 0.9999995827674866, 2.53407730355093e-08, 126.90105438232422],
+   [0.0,                   0.0,                0.0,                        1.0]
+], dtype=float)
+
+# Precompute inverse for world→bone conversion
+BONE_INV = np.linalg.inv(BONE_WORLD)
+
+# # Map-world matrix
+# MAP_WORLD = np.array([
+#     [ 0.9984923601150513,  -0.0019954282324761152,   0.054854705929756165,  -151.26473999023438 ],
+#     [ 0.054884374141693115,  0.051805611699819565,   -0.9971478581428528,   -79.25841522216797 ],
+#     [-0.0008520446135662496,  0.9986552000045776,      0.051837027072906494,  105.77490997314453 ],
+#     [ 0.0,                    0.0,                     0.0,                     1.0               ]
+# ], dtype=float)
+
+# # Precompute inverse for Map→World→Bone chain 
+# MAP_INV = np.linalg.inv(MAP_WORLD)
+
+# # Direct Map→Bone matrix (Blender se calculate ki)
+# MAP_TO_BONE = np.array([
+#     [ 0.05488530918955803,  0.05259993299841881, -0.9971062541007996,  -79.28734588623047  ],
+#     [-0.000895726669114083, 0.9986137747764587,   0.05263015627861023,  -21.063081741333008],
+#     [ 0.998492419719696,   -0.0019954186864197254, 0.05485633760690689, -151.26461791992188],
+#     [ 0.0,                  0.0,                   0.0,                   1.0              ]
+# ], dtype=float)
+
 
 def parse_arguments() -> Any:
     """
@@ -239,9 +269,60 @@ def apply_inflections(
 
         # Rule 1: If the current line number is in pointing dictionary, 
         # then memorize the coordinates in variable last_target
+        #if line_num in pointing_dict:
+        #    last_target = np.array(pointing_dict[line_num])
+        #    print(f"  Memorized last_target: {last_target}")
+
+        # Convert target point from world coordinates to bone-space coordinates
         if line_num in pointing_dict:
-            last_target = np.array(pointing_dict[line_num])
-            print(f"  Memorized last_target: {last_target}")
+            # 1) Get target point coordinates from pointing dictionary in world-space.
+            #    These are the raw XYZ coordinates from the JSON file.
+            world_xyz = np.array(pointing_dict[line_num], dtype=float)  # [x, y, z]
+
+            # 2) Convert to homogeneous coordinates by appending w=1.
+            #    This is needed for matrix multiplication with 4x4 transform matrices.
+            world_h = np.append(world_xyz, 1.0)  # [x, y, z, 1]
+
+            # 3) Transform from world coordinates to bone-space using inverse bone matrix.
+            #    BONE_INV converts from world-space to bone-space coordinates.
+            #    This gives us the target point relative to the bone's local coordinate system.
+            local_h = BONE_INV.dot(world_h)      # [x', y', z', w']
+
+            # 4) Store just the XYZ components as the target point in bone-space.
+            #    We drop the w component since we only need the 3D position.
+            last_target = local_h[:3]            # strip w component
+            print(f"  Converted world→bone local target: {last_target}")
+
+
+# Map→World→Bone
+    #    if line_num in pointing_dict:
+    #        # 1) Map-local coords (JSON)
+    #        map_xyz = np.array(pointing_dict[line_num], dtype=float)  # [x,y,z] in Map space
+    #        map_h   = np.append(map_xyz, 1.0)                          # [x,y,z,1]
+        
+    #        # 2) Map→World
+    #        world_h = MAP_WORLD.dot(map_h)                             # [xw, yw, zw, 1]
+        
+    #        # 3) World→Bone
+    #        bone_h  = BONE_INV.dot(world_h)                            # [xb, yb, zb, 1]
+        
+            # 4) Final bone-relative target
+    #        last_target = bone_h[:3]
+    #        print(f"  Converted Map→World→Bone target: {last_target}")
+
+# Map→Bone
+      #  if line_num in pointing_dict:
+      #      # 1) Map-local coords (JSON)
+      #      map_xyz = np.array(pointing_dict[line_num], dtype=float)  # [x,y,z]
+      #      map_h   = np.append(map_xyz, 1.0)                          # [x,y,z,1]
+
+            # 2) Direct Map→Bone
+      #      bone_h      = MAP_TO_BONE.dot(map_h)                       # [xb, yb, zb, w]
+      #      last_target = bone_h[:3]                                   # bone-space [x,y,z]
+        
+      #      print(f"  Converted Map→Bone target: {last_target}")
+
+        
 
         # Rule 2: If the maingloss is INDEX and last_target is different from None,
         # then compute the inflection parameters using last_target and set last_target = None
