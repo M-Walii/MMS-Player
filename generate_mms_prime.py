@@ -20,6 +20,7 @@ import pandas as pd
 from scipy.spatial.transform import Rotation as R
 
 # Bone_Spine2-world matrix
+# Generated with bone_world_matrix.py
 BONE_WORLD = np.array([
    [1.623146658857877e-06, -9.530092626164333e-08, 0.9999999403953552, -4.030154286738252e-06],
    [0.9999996423721313, -0.0007954105967655778, -1.631790041756176e-06, 0.011902960017323494],
