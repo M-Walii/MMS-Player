@@ -268,13 +268,6 @@ def apply_inflections(
         maingloss = row['maingloss']
         print(f"\nProcessing row {line_num}: {maingloss}")
 
-        # Rule 1: If the current line number is in pointing dictionary, 
-        # then memorize the coordinates in variable last_target
-        #if line_num in pointing_dict:
-        #    last_target = np.array(pointing_dict[line_num])
-        #    print(f"  Memorized last_target: {last_target}")
-
-        # Convert target point from world coordinates to bone-space coordinates
         if line_num in pointing_dict:
             # 1) Get target point coordinates from pointing dictionary in world-space.
             #    These are the raw XYZ coordinates from the JSON file.
@@ -289,44 +282,9 @@ def apply_inflections(
             #    This gives us the target point relative to the bone's local coordinate system.
             local_h = BONE_INV.dot(world_h)      # [x', y', z', w']
 
-            # 4) Store just the XYZ components as the target point in bone-space.
-            #    We drop the w component since we only need the 3D position.
             last_target = local_h[:3]            # strip w component
             print(f"  Converted world→bone local target: {last_target}")
 
-
-# Map→World→Bone
-    #    if line_num in pointing_dict:
-    #        # 1) Map-local coords (JSON)
-    #        map_xyz = np.array(pointing_dict[line_num], dtype=float)  # [x,y,z] in Map space
-    #        map_h   = np.append(map_xyz, 1.0)                          # [x,y,z,1]
-        
-    #        # 2) Map→World
-    #        world_h = MAP_WORLD.dot(map_h)                             # [xw, yw, zw, 1]
-        
-    #        # 3) World→Bone
-    #        bone_h  = BONE_INV.dot(world_h)                            # [xb, yb, zb, 1]
-        
-            # 4) Final bone-relative target
-    #        last_target = bone_h[:3]
-    #        print(f"  Converted Map→World→Bone target: {last_target}")
-
-# Map→Bone
-      #  if line_num in pointing_dict:
-      #      # 1) Map-local coords (JSON)
-      #      map_xyz = np.array(pointing_dict[line_num], dtype=float)  # [x,y,z]
-      #      map_h   = np.append(map_xyz, 1.0)                          # [x,y,z,1]
-
-            # 2) Direct Map→Bone
-      #      bone_h      = MAP_TO_BONE.dot(map_h)                       # [xb, yb, zb, w]
-      #      last_target = bone_h[:3]                                   # bone-space [x,y,z]
-        
-      #      print(f"  Converted Map→Bone target: {last_target}")
-
-        
-
-        # Rule 2: If the maingloss is INDEX and last_target is different from None,
-        # then compute the inflection parameters using last_target and set last_target = None
         if maingloss == 'INDEX' and last_target is not None:
             try:
                 print(f"  Using last_target for inflection: {last_target}")
@@ -335,11 +293,27 @@ def apply_inflections(
                     initial_vector,
                     last_target
                 )
-                print(f"  Calculated angles: alpha={alpha}, beta={beta}")
+                print(f"  Calculated total angles: alpha={alpha}, beta={beta}")
+                
+                # Split angles 50-50 between hand and torso for natural pointing gesture
+                hand_alpha = alpha * 0.5
+                hand_beta = beta * 0.5
+                torso_alpha = alpha * 0.5
+                torso_beta = beta * 0.5
+                
+                print(f"  Hand angles (50%): alpha={hand_alpha}, beta={hand_beta}")
+                print(f"  Torso angles (50%): alpha={torso_alpha}, beta={torso_beta}")
+                
+                # Update hand rotation (50% of total rotation)
                 mms_prime.at[line_num, 'domhandrotx'] = 0.0
-                mms_prime.at[line_num, 'domhandroty'] = float(alpha)
-                mms_prime.at[line_num, 'domhandrotz'] = float(beta)
-                print(f"  Updated angles in INDEX row {line_num}")
+                mms_prime.at[line_num, 'domhandroty'] = float(hand_alpha)
+                mms_prime.at[line_num, 'domhandrotz'] = float(hand_beta)
+                
+                # Update torso rotation (50% of total rotation) for natural pointing
+                mms_prime.at[line_num, 'torsorelocay'] = float(torso_alpha)
+                mms_prime.at[line_num, 'torsorelocaz'] = float(torso_beta)
+                
+                print(f"  Updated hand and torso angles in INDEX row {line_num}")
                 last_target = None
             except Exception as e:
                 print(f"Error processing INDEX at row {line_num}: {str(e)}")
