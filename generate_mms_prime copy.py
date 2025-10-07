@@ -295,16 +295,23 @@ def apply_inflections(
                 )
                 print(f"  Calculated total angles: alpha={alpha}, beta={beta}")
                 
-                # Apply full angles to hand only
-                hand_alpha = alpha
-                hand_beta = beta
-
-                print(f"  Hand angles (100%): alpha={hand_alpha}, beta={hand_beta}")
-
-                # Update hand rotation (100% of total rotation)
+                # Split angles 50-50 between hand and torso for natural pointing gesture
+                hand_alpha = alpha * 0.5
+                hand_beta = beta * 0.5
+                torso_alpha = alpha * 0.5
+                torso_beta = beta * 0.5
+                
+                print(f"  Hand angles (50%): alpha={hand_alpha}, beta={hand_beta}")
+                print(f"  Torso angles (50%): alpha={torso_alpha}, beta={torso_beta}")
+                
+                # Update hand rotation (50% of total rotation)
                 mms_prime.at[line_num, 'domhandrotx'] = 0.0
                 mms_prime.at[line_num, 'domhandroty'] = float(hand_alpha)
                 mms_prime.at[line_num, 'domhandrotz'] = float(hand_beta)
+                
+                # Update torso rotation (50% of total rotation) for natural pointing
+                mms_prime.at[line_num, 'torsorelocay'] = float(torso_alpha)
+                mms_prime.at[line_num, 'torsorelocaz'] = float(torso_beta)
                 
                 print(f"  Updated hand and torso angles in INDEX row {line_num}")
                 last_target = None
