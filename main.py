@@ -80,7 +80,7 @@ def add_options(arg_parser: argparse.ArgumentParser):
         "--res-x",
         type=int,
         required=False,
-        default=1080,
+        default=1920,
         help="Width of the rendered video.",
     )
 
@@ -88,7 +88,7 @@ def add_options(arg_parser: argparse.ArgumentParser):
         "--res-y",
         type=int,
         required=False,
-        default=1920,
+        default=1080,
         help="Height of the rendered video.",
     )
 
@@ -305,6 +305,18 @@ def render_sentence(sentence_id: str, generated_root: Path, glue: Glue, argument
     )
 
 
+def resolve_assets_dir() -> Path:
+    candidates = [
+        Path("./assets"),
+        Path("./MMS Prime Scripts/assets"),
+    ]
+    for path in candidates:
+        if path.exists():
+            return path
+    tried = ", ".join(str(p) for p in candidates)
+    raise Exception(f"Assets directory not found. Tried: {tried}")
+
+
 def execute_pipeline(arguments: argparse.Namespace) -> None:
     """Execute the mms pipeline.
 
@@ -317,6 +329,7 @@ def execute_pipeline(arguments: argparse.Namespace) -> None:
     mms_file = arguments.source_mms_file
     generated_root = arguments.corpus_generated_directory
     sentence_id = Path(mms_file).stem
+    assets_dir = resolve_assets_dir()
 
     # Read the MMS from the given MMS file.
     mms = MMSParser(mms_file, generated_root).parse()
@@ -329,8 +342,8 @@ def execute_pipeline(arguments: argparse.Namespace) -> None:
     if arguments.render_sentence:
         glue = Glue(
             mms=mms,
-            ignore_bone_list="./assets/ignorelist.json",
-            src_blendfile="./assets/defaults-AbsCoordTest-250626.blend",
+            ignore_bone_list=str(assets_dir / "ignorelist.json"),
+            src_blendfile=str(assets_dir / "defaults-AbsCoordTest-250626.blend"),
             action_name="final_action"
         )
         render_sentence(sentence_id, generated_root, glue, arguments)
@@ -346,7 +359,7 @@ def execute_pipeline(arguments: argparse.Namespace) -> None:
     # The way items are added to the bone list defines the execution order for the
     # ik target.
 
-    config_path = Path("./assets/controller_config.json")
+    config_path = assets_dir / "controller_config.json"
     if not config_path.exists():
         raise Exception(f"The config '{config_path}' couldn't be located.")
 
@@ -453,10 +466,12 @@ def execute_pipeline(arguments: argparse.Namespace) -> None:
 
     # Finally we merge individual signs to produce the final utterance of the full sentence.
     print("Merging inflected glosses into the final timeline...")
-    glue = Glue(mms=mms,
-                ignore_bone_list="./assets/ignorelist.json",
-                src_blendfile="./assets/defaults-EmptyAxis.blend",
-                action_name="final_action")
+    glue = Glue(
+        mms=mms,
+        ignore_bone_list=str(assets_dir / "ignorelist.json"),
+        src_blendfile=str(assets_dir / "defaults-GermanyMapUserStudy.blend"),
+        action_name="final_action",
+    )
     # Since the animation data is essentially empty after initializing a new one,
     # it is necessary to create f-curves that match the source data.
     glue.create_new_fcurves()

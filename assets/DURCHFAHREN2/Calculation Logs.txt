@@ -1,0 +1,88 @@
+============================================================
+DURCHFAHREN2 TRAJECTORY DATA (from JSON):
+============================================================
+  Trajectory file: C:/Users/walee/Documents/Thesis/AVASAGcorpus-MLsubset91/AVASAGcorpus-MLsubset91\generated\signs\trimmed\DURCHFAHREN2.trajectoryInfo.json
+  Total trajectory frames: 33
+  First frame (starting_point): [-12.044065, -3.434533, -13.470142]
+  Second frame: [-12.316554, -3.443935, -13.417581]
+  Initial vector (traj[1] - traj[0]): [-0.272489, -0.009403, 0.052562]
+  Initial vector magnitude: 0.277671
+============================================================
+
+  Note: First DURCHFAHREN2 at line 8, using HAMBURG (hardcoded) as previous city
+
+============================================================
+Line 8: DURCHFAHREN2 inflection calculated
+============================================================
+  Previous city (before DURCHFAHREN2): HAMBURG (hardcoded) (world: [-188.750, -75.776, 170.037])
+  Next city (after DURCHFAHREN2): line 10 (world: Hannover [-193.075, -77.999, 133.758])
+  Target vector (world): [-4.325, -2.223, -36.279]
+  Target vector (bone-space): [-2.251863, -36.277224, -4.325000]
+  Starting point (trajectory, bone-space): [-12.044065, -3.434533, -13.470142]
+  Initial vector (normalized): [-0.981336, -0.033863, 0.189295]
+  Target vector (normalized): [-0.061520, -0.991087, -0.118158]
+
+  QUATERNION METHOD RESULTS:
+    Alpha (α):  0.312222 radians (17.89°)
+    Beta (β):   0.048293 radians (2.77°)
+    Gamma (γ):  1.479501 radians (84.77°)
+
+  MMS Prime Update:
+    domhandrotx = 0.312222
+    domhandroty = 0.048293
+    domhandrotz = 1.479501
+============================================================
+
+  Note: Using last encountered city (line 10) as previous city
+
+============================================================
+Line 10: DURCHFAHREN2 inflection calculated
+============================================================
+  Previous city (before DURCHFAHREN2): line 10 (world: Hannover [-193.075, -77.999, 133.758])
+  Next city (after DURCHFAHREN2): line 12 (world: Erfurt [-166.775, -81.352, 87.620])
+  Target vector (world): [26.300, -3.353, -46.138]
+  Target vector (bone-space): [-3.389655, -46.135324, 26.300003]
+  Starting point (trajectory, bone-space): [-12.044065, -3.434533, -13.470142]
+  Initial vector (normalized): [-0.981336, -0.033863, 0.189295]
+  Target vector (normalized): [-0.063699, -0.866990, 0.494238]
+
+  QUATERNION METHOD RESULTS:
+    Alpha (α):  -0.192395 radians (-11.02°)
+    Beta (β):   0.630241 radians (36.11°)
+    Gamma (γ):  1.179749 radians (67.59°)
+
+  MMS Prime Update:
+    domhandrotx = -0.192395
+    domhandroty = 0.630241
+    domhandrotz = 1.179749
+============================================================
+
+  Note: Using last encountered city (line 12) as previous city
+
+============================================================
+Line 12: DURCHFAHREN2 inflection calculated
+============================================================
+  Previous city (before DURCHFAHREN2): line 12 (world: Erfurt [-166.775, -81.352, 87.620])
+  Next city (after DURCHFAHREN2): line 14 (world: Koln [-280.647, -86.469, 98.071])
+  Target vector (world): [-113.872, -5.117, 10.451]
+  Target vector (bone-space): [-5.108872, 10.455071, -113.871997]
+  Starting point (trajectory, bone-space): [-12.044065, -3.434533, -13.470142]
+  Initial vector (normalized): [-0.981336, -0.033863, 0.189295]
+  Target vector (normalized): [-0.044633, 0.091339, -0.994819]
+
+  QUATERNION METHOD RESULTS:
+    Alpha (α):  -0.089013 radians (-5.10°)
+    Beta (β):   -1.709652 radians (-97.96°)
+    Gamma (γ):  -0.110752 radians (-6.35°)
+
+  MMS Prime Update:
+    domhandrotx = -0.089013
+    domhandroty = -1.709652
+    domhandrotz = -0.110752
+============================================================
+
+
+============================================================
+SUCCESS: Saved inflected MMS Prime to:
+  C:/Users/walee/Documents/Thesis/MMS-Player/inflected_mms\0011.mms_prime.csv
+============================================================
